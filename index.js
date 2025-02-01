@@ -89,18 +89,40 @@ client.on("interactionCreate", async (interaction) => {
 
     try {
       const response = await axios.post(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateText",
+        "https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent",
         {
-          prompt: { text: userMessage },
+          contents: [
+            {
+              parts: [
+                {
+                  text: userMessage,
+                },
+              ],
+            },
+          ],
         },
         {
           params: { key: process.env.GEMINI_API_KEY },
         }
       );
 
+      console.log(
+        "Gemini API Response:",
+        JSON.stringify(response.data, null, 2)
+      );
+
       const aiReply =
-        response.data.candidates?.[0]?.output || "I couldn't understand that.";
-      await interaction.editReply(aiReply);
+        response.data?.candidates?.[0]?.content?.parts?.[0]?.text ||
+        "I couldn't understand that.";
+      const chunks = aiReply.match(/[\s\S]{1,1900}/g) || [];
+
+      // Send the first chunk as the initial reply
+      await interaction.editReply(chunks[0]);
+
+      // Send the rest as follow-up messages
+      for (let i = 1; i < chunks.length; i++) {
+        await interaction.followUp(chunks[i]);
+      }
     } catch (error) {
       console.error(
         "❌ Error fetching AI response:",
